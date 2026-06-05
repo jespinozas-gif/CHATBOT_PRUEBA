@@ -115,6 +115,8 @@ df = load_data()
 intendencia = st.session_state.intendencia
 
 st.title("🤖 Chatbot SUNAFIL")
+st.info(f"🏢 Intendencia: {intendencia}"
+)
 
 modo = st.radio("Modo", ["Preguntas Cerradas", "Pregunta Abierta"])
 
