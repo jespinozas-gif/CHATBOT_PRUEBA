@@ -91,6 +91,19 @@ def load_data():
     df["FECHA DE CORTE"] = pd.to_datetime(df["FECHA DE CORTE"])
     return df
 
+@st.cache_data
+def load_dic():
+    dic = pd.read_excel(EXCEL_FILE, sheet_name="DIC")
+
+    dic.columns = (
+        dic.columns
+        .str.replace("\n", " ", regex=False)
+        .str.replace("  ", " ")
+        .str.strip()
+    )
+
+    return dic
+    
 def get_groq():
     if not st.session_state.groq_key:
         st.error("No se ha configurado una API Key de Groq.")
@@ -130,6 +143,7 @@ if not st.session_state.logged:
     st.stop()
 
 df = load_data()
+df_dic = load_dic()
 intendencia = st.session_state.intendencia
 
 st.title("🤖 Chatbot SUNAFIL")
@@ -233,16 +247,69 @@ if modo == "Preguntas Cerradas":
             st.success(f"Resultado: {valor:,}" if isinstance(valor,(int,float)) else valor)
 
 else:
+
     st.subheader("Pregunta Abierta")
-    pregunta = st.text_area("Ingrese su consulta")
+
+    categorias_disponibles = [
+        "EVALUACIÓN DE DENUNCIAS",
+        "GENERACIÓN DE ÓRDENES",
+        "CIERRE DE ÓRDENES",
+        "IMPUTACIONES DE CARGO",
+        "INFORMES FINALES",
+        "PRIMERA INSTANCIA",
+        "SEGUNDA INSTANCIA"
+    ]
+
+    categorias_sel = st.multiselect(
+        "Categorías",
+        categorias_disponibles,
+        help="GENERAL siempre se incluye automáticamente"
+    )
+
+    pregunta = st.text_area(
+        "Ingrese su consulta"
+    )
 
     if st.button("Analizar"):
-        data = df[df["INTENDENCIA"] == intendencia].to_dict(orient="records")
+
+        categorias_finales = ["GENERAL"] + categorias_sel
+
+        indices_columnas = (
+            df_dic[
+                df_dic["CATEGORIA"].isin(categorias_finales)
+            ]["COLUMNA"]
+            .dropna()
+            .astype(int)
+            .unique()
+            .tolist()
+        )
+
+        columnas = [
+            df.columns[i]
+            for i in indices_columnas
+            if i < len(df.columns)
+        ]
+
+        df_filtrado = df[
+            df["INTENDENCIA"] == intendencia
+        ]
+
+        data = (
+            df_filtrado[columnas]
+            .to_dict(orient="records")
+        )
 
         prompt = f"""
 Eres un analista SUNAFIL.
-Usa exclusivamente estos datos: {json.dumps(data, default=str)}
-Pregunta: {pregunta}
+
+La intendencia consultada es: {intendencia}
+
+Usa exclusivamente estos datos:
+
+{json.dumps(data, default=str)}
+
+Pregunta:
+{pregunta}
 
 No inventes información.
 Si no existe información suficiente, indícalo.
@@ -250,12 +317,26 @@ Respuesta máxima 5 líneas.
 """
 
         client = get_groq()
+
         resp = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model="llama-3.3-70b-versatile",
             messages=[
-                {"role":"system","content":"Responde de forma breve y ejecutiva."},
-                {"role":"user","content":prompt}
-            ]
+                {
+                    "role":"system",
+                    "content":"Responde de forma breve, ejecutiva y basada únicamente en los datos."
+                },
+                {
+                    "role":"user",
+                    "content":prompt
+                }
+            ],
+            temperature=0
         )
 
         st.write(resp.choices[0].message.content)
+
+        with st.expander("Ver detalle técnico"):
+            st.write("Intendencia:", intendencia)
+            st.write("Categorías:", categorias_finales)
+            st.write("Columnas enviadas:", len(columnas))
+            st.write(columnas)
