@@ -92,17 +92,35 @@ def load_data():
     return df
 
 def get_groq():
-    return Groq(api_key=st.secrets["GROQ_API_KEY"])
+    if not st.session_state.groq_key:
+        st.error("No se ha configurado una API Key de Groq.")
+        st.stop()
+
+    return Groq(api_key=st.session_state.groq_key)
 
 if "logged" not in st.session_state:
     st.session_state.logged = False
+if "groq_key" not in st.session_state:
+    st.session_state.groq_key = ""
 
 if not st.session_state.logged:
     st.title("🔐 Chatbot SUNAFIL")
+    
+    api_key = st.text_input(
+        "API Key de Groq",
+        type="password"
+    )
     inten = st.selectbox("Intendencia", INTENDENCIAS)
     pwd = st.text_input("Contraseña", type="password")
 
     if st.button("Ingresar"):
+        
+        if not api_key:
+           st.error("Ingrese una API Key de Groq")
+           st.stop()
+            
+        st.session_state.groq_key = api_key
+
         if pwd == PASSWORD:
             st.session_state.logged = True
             st.session_state.intendencia = "ILM" if inten=="LIMA METROPOLITANA" else inten
@@ -233,7 +251,7 @@ Respuesta máxima 5 líneas.
 
         client = get_groq()
         resp = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[
                 {"role":"system","content":"Responde de forma breve y ejecutiva."},
                 {"role":"user","content":prompt}
