@@ -7,8 +7,8 @@ from groq import Groq
 st.set_page_config(page_title="Chatbot SUNAFIL", layout="wide")
 
 PASSWORD = "PRUEBASUNA"
-EXCEL_FILE = "consolidadosuna.xlsx"
-SHEET_NAME = "Consolidado_29.05"
+EXCEL_FILE = "consolidadosuna 12.06.xlsx"
+SHEET_NAME = "Consolidado_12.06"
 
 INTENDENCIAS = [
     "AMAZONAS","ANCASH","APURÍMAC","AREQUIPA","AYACUCHO","CAJAMARCA","CALLAO",
